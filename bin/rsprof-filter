@@ -31,10 +31,10 @@ sub make_regex {
     my $back = ($demand_back ? "/.*" : "(?:/.*)?");
 
     if($match =~ /^\/(.*)\/$/) {
-        return qr/^($front)($1)($back)$/;
+        return qr/^(?<pre>$front)(?<middle>$1)(?<post>$back)$/;
     }
     else {
-        return qr/^($front)(\Q$match\E)($back)$/;
+        return qr/^(?<pre>$front)(?<middle>\Q$match\E)(?<post>$back)$/;
     }
 }
 
@@ -51,8 +51,9 @@ sub compact_frame_filter {
 
         my $keep_c = 1;
         while($path =~ $re) {
-            my $pre = $1;
-            my $post = $3;
+            my $pre = $+{'pre'};
+            my $middle = $+{'middle'};
+            my $post = $+{'post'};
             if($post eq "") {
                 $keep_c = 0;
             }
@@ -84,8 +85,9 @@ sub compact_before_filter {
         }
 
         while($path =~ $hard_re) {
-            my $middle = $2;
-            my $post = $3;
+            my $pre = $+{'pre'};
+            my $middle = $+{'middle'};
+            my $post = $+{'post'};
             $path = "$middle$post";
         }
 
@@ -106,8 +108,9 @@ sub compact_beyond_filter {
 
         my $keep_c = 1;
         while($path =~ $hard_re) {
-            my $pre = $1;
-            my $middle = $2;
+            my $pre = $+{'pre'};
+            my $middle = $+{'middle'};
+            my $post = $+{'post'};
             $path = "$pre$middle";
             $keep_c = 0;
         }
