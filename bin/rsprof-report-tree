@@ -5,6 +5,8 @@ $| = 1;
 use strict;
 use warnings;
 
+no warnings ('recursion');
+
 use JSON::Syck;
 use Getopt::Long;
 
