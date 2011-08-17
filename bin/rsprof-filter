@@ -1,0 +1,183 @@
+#!/usr/bin/perl
+
+$| = 1;
+
+use strict;
+use warnings;
+
+use JSON::Syck;
+use Getopt::Long;
+
+my $path_field = "path";
+my %time_fields = ();
+my %call_fields = ();
+my @filters;
+
+GetOptions(
+    "path-field=s" => \$path_field,
+    "time-field=s" => sub { for my $field (split(/,/, $_[1])) { $time_fields{$field} = 1; } },
+    "call-field=s" => sub { for my $field (split(/,/, $_[1])) { $call_fields{$field} = 1; } },
+    "compact-frame=s" => sub { push @filters, compact_frame_filter($_[1]); },
+    "compact-before=s" => sub { push @filters, compact_before_filter($_[1]); },
+    "compact-beyond=s" => sub { push @filters, compact_beyond_filter($_[1]); },
+) || die;
+
+sub make_regex {
+    my $match = shift;
+    my $demand_front = shift;
+    my $demand_back = shift;
+
+    my $front = ($demand_front ? ".*/" : "(?:.*/)?");
+    my $back = ($demand_back ? "/.*" : "(?:/.*)?");
+
+    if($match =~ /^\/(.*)\/$/) {
+        return qr/^($front)($1)($back)$/;
+    }
+    else {
+        return qr/^($front)(\Q$match\E)($back)$/;
+    }
+}
+
+sub compact_frame_filter {
+    my $match = shift;
+
+    my $re = make_regex($match, 0, 0);
+
+    # X/FRAME/Y, t, c => X/Y, t, c
+    # X/FRAME, t, c => X, t, 0
+    # ELSE, t, c => ELSE, t, c
+    return sub {
+        my $path = shift;
+
+        my $keep_c = 1;
+        while($path =~ $re) {
+            my $pre = $1;
+            my $post = $3;
+            if($post eq "") {
+                $keep_c = 0;
+            }
+            $path = "$pre$post";
+        }
+
+        return ($path, $keep_c);
+    };
+}
+
+sub compact_before_filter {
+    my $match = shift;
+
+    my $soft_re = make_regex($match, 0, 0);
+    my $hard_re = make_regex($match, 1, 0);
+
+    # X/BEFORE/Y, t, c => BEFORE/Y, t, c
+    # X/BEFORE, t, c => BEFORE, t, c
+    # ELSE => <drop>
+    return sub {
+        my $path = shift;
+
+        if($path !~ $soft_re) {
+            return undef;
+        }
+
+        while($path =~ $hard_re) {
+            my $middle = $2;
+            my $post = $3;
+            $path = "$middle$post";
+        }
+
+        return ($path, 1);
+    };
+}
+
+sub compact_beyond_filter {
+    my $match = shift;
+
+    my $hard_re = make_regex($match, 0, 1);
+
+    # X/BEYOND/Y, t, c => X/BEYOND, t, 0
+    # X/BEYOND, t, c => X/BEYOND, t, c
+    # ELSE, t, c => ELSE, t, c
+    return sub {
+        my $path = shift;
+
+        my $keep_c = 1;
+        while($path =~ $hard_re) {
+            my $pre = $1;
+            my $middle = $2;
+            $path = "$pre$middle";
+            $keep_c = 0;
+        }
+
+        return ($path, $keep_c);
+    };
+}
+
+{
+    my $output = new_output();
+
+    while(<>) {
+        chomp;
+        my $r = JSON::Syck::Load($_);
+        my $path = $r->{$path_field};
+
+        my $keep_c = 1;
+        for my $filter (@filters) {
+            if(!defined($path)) {
+                last;
+            }
+
+            my ($path2, $keep_c2) = $filter->($path);
+            $path = $path2;
+            if(!$keep_c2) {
+                $keep_c = 0;
+            }
+        }
+
+        if(!defined($path)) {
+            next;
+        }
+
+        for my $field (keys(%time_fields)) {
+            my $value = $r->{$field};
+            if(defined($value)) {
+                push_output($output, $path, $field, $value);
+            }
+        }
+
+        for my $field (keys(%call_fields)) {
+            my $value = $r->{$field};
+            if(defined($value)) {
+                if(!$keep_c) {
+                    $value = 0;
+                }
+                push_output($output, $path, $field, $value);
+            }
+        }
+    }
+
+    for my $entry (@{$output->[1]}) {
+        my $path = $entry->[0];
+        my $fields = $entry->[1];
+        print JSON::Syck::Dump({$path_field => $path, %$fields}) . "\n";
+    }
+}
+
+sub new_output {
+    return [{}, []];
+}
+
+sub push_output {
+    my $output = shift;
+    my $path = shift;
+    my $field = shift;
+    my $value = shift;
+
+    my $outputh = $output->[0];
+    my $outputa = $output->[1];
+    my $entry = $outputh->{$path};
+    if(!$entry) {
+        push @$outputa, ($outputh->{$path} = $entry = [$path, {}]);
+    }
+
+    ($entry->[1]->{$field} ||= 0) += $value;
+}
