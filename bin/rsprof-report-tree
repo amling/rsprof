@@ -1,0 +1,135 @@
+#!/usr/bin/perl
+
+$| = 1;
+
+use strict;
+use warnings;
+
+use JSON::Syck;
+use Getopt::Long;
+
+my $order = \&order_file;
+my $path_field = "path";
+my $time_field = undef;
+my $call_field = undef;
+my $blank = 0;
+my $acc = 0;
+
+GetOptions(
+    "order-file!" => sub { $order = \&order_file; },
+    "order-lex!" => sub { $order = \&order_lex; },
+    "order-time!" => sub { $order = \&order_time; },
+    "path-field=s" => \$path_field,
+    "time-field=s" => \$time_field,
+    "call-field=s" => \$call_field,
+    "accumulate!" => \$acc,
+    "blank!" => \$blank,
+) || die;
+
+my $times = {};
+my $calls = {};
+my $tree = [[], {}];
+my $total = 0;
+
+while(<>) {
+    chomp;
+    my $r = JSON::Syck::Load($_);
+    my $path = $r->{$path_field};
+    next unless(defined($path));
+    my $time = defined($time_field) ? ($r->{$time_field} || 0) : 0;
+    my $call = defined($call_field) ? ($r->{$call_field} || 0) : 0;
+
+    my @stack = split(/\//, $path);
+    add_tree($tree, @stack);
+    {
+        my @stackt = @stack;
+        while(1) {
+            charge($call, $time, @stackt);
+            pop @stackt;
+            last unless($acc && @stackt);
+            $call = 0;
+        }
+    }
+    $total += $time;
+}
+
+dump_tree($tree);
+
+sub charge {
+    my ($delta_call, $delta_time, @stack) = @_;
+
+    my $key = join("/", @stack);
+    ($times->{$key} ||= 0) += $delta_time;
+    ($calls->{$key} ||= 0) += $delta_call;
+}
+
+sub add_tree {
+    my ($tree, @stack) = @_;
+    while(@stack) {
+        my $s = shift @stack;
+        my $tree2 = $tree->[1]->{$s};
+        if(!$tree2) {
+            $tree2 = $tree->[1]->{$s} = [[], {}];
+            push @{$tree->[0]}, $s;
+        }
+        $tree = $tree2;
+    }
+}
+
+sub format_key {
+    my ($key) = @_;
+
+    my $time = $times->{$key} || 0;
+    my $call = $calls->{$key} || 0;
+
+    my @r;
+    if(defined($time_field)) {
+        push @r, sprintf("%d [%0.04f%%]", $time, $time / $total * 100);
+    }
+    if(defined($call_field)) {
+        push @r, $call;
+    }
+    if(defined($time_field) && defined($call_field)) {
+        push @r, ($call ? ($time / $call) : "N/A");
+    }
+
+    if($blank) {
+        while($key =~ s/^( *)[^\/]*\//$1   /) {
+        }
+    }
+
+    my $r0 = shift @r;
+    my $r1 = @r ? (" (" . join(", ", @r) . ")") : "";
+
+    print "$key => $r0$r1\n";
+}
+
+sub dump_tree {
+    my ($tree, @stack) = @_;
+
+    my $key = join("/", @stack);
+    if($times->{$key}) {
+        format_key($key);
+    }
+
+    my @options = @{$tree->[0]};
+    @options = $order->(\@stack, @options);
+    for my $s (@options) {
+        dump_tree($tree->[1]->{$s}, @stack, $s);
+    }
+}
+
+sub order_file {
+    my $stack = shift;
+    return @_;
+}
+
+sub order_lex {
+    my $stack = shift;
+    return sort { $a cmp $b } @_;
+}
+
+sub order_time {
+    my $stack = join("/", shift);
+    return sort { (($times->{"$stack/$b"} || 0) <=> ($times->{"$stack/$a"} || 0)) || ($a cmp $b) } @_;
+}
