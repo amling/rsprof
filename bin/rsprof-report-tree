@@ -11,6 +11,7 @@ use Getopt::Long;
 my $order = \&order_file;
 my $path_field = "path";
 my $time_field = undef;
+my $min_time = undef;
 my $call_field = undef;
 my $blank = 0;
 my $acc = 0;
@@ -21,6 +22,7 @@ GetOptions(
     "order-time!" => sub { $order = \&order_time; },
     "path-field=s" => \$path_field,
     "time-field=s" => \$time_field,
+    "min-time=s" => \$min_time,
     "call-field=s" => \$call_field,
     "accumulate!" => \$acc,
     "blank!" => \$blank,
@@ -81,6 +83,10 @@ sub format_key {
 
     my $time = $times->{$key} || 0;
     my $call = $calls->{$key} || 0;
+
+    if(defined($min_time) && $time < $min_time) {
+        return;
+    }
 
     my @r;
     if(defined($time_field)) {
