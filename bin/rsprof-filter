@@ -57,6 +57,10 @@ sub compact_frame_filter {
                 $keep_c = 0;
             }
             $path = "$pre$post";
+            # TODO: omfg, think of a better way to do this
+            $path =~ s/\/\/*/\//g;
+            $path =~ s/^\///;
+            $path =~ s/\/$//;
         }
 
         return ($path, $keep_c);
