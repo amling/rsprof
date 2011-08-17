@@ -130,6 +130,6 @@ sub order_lex {
 }
 
 sub order_time {
-    my $stack = join("/", shift);
-    return sort { (($times->{"$stack/$b"} || 0) <=> ($times->{"$stack/$a"} || 0)) || ($a cmp $b) } @_;
+    my $stack = shift;
+    return sort { (($times->{join(@$stack, $b)} || 0) <=> ($times->{join(@$stack, $a)} || 0)) || ($a cmp $b) } @_;
 }
