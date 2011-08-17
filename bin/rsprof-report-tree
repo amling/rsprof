@@ -139,5 +139,5 @@ sub order_lex {
 
 sub order_time {
     my $stack = shift;
-    return sort { (($times->{join(@$stack, $b)} || 0) <=> ($times->{join(@$stack, $a)} || 0)) || ($a cmp $b) } @_;
+    return sort { (($times->{join("/", @$stack, $b)} || 0) <=> ($times->{join("/", @$stack, $a)} || 0)) || ($a cmp $b) } @_;
 }
