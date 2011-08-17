@@ -14,6 +14,8 @@ my $order = \&order_file;
 my $path_field = "path";
 my $time_field = undef;
 my $min_time = undef;
+my $min_perc = undef;
+my $min_rel_perc = undef;
 my $call_field = undef;
 my $blank = 0;
 my $acc = 0;
@@ -25,6 +27,8 @@ GetOptions(
     "path-field=s" => \$path_field,
     "time-field=s" => \$time_field,
     "min-time=s" => \$min_time,
+    "min-perc=s" => \$min_perc,
+    "min-rel-perc=s" => \$min_rel_perc,
     "call-field=s" => \$call_field,
     "accumulate!" => \$acc,
     "blank!" => \$blank,
@@ -89,6 +93,9 @@ sub format_key {
     if(defined($min_time) && $time < $min_time) {
         return;
     }
+    if(defined($min_perc) && $time / $total * 100 < $min_perc) {
+        return;
+    }
 
     my @r;
     if(defined($time_field)) {
@@ -116,13 +123,20 @@ sub dump_tree {
     my ($tree, @stack) = @_;
 
     my $key = join("/", @stack);
-    if($times->{$key}) {
+    if(defined($times->{$key})) {
         format_key($key);
     }
 
     my @options = @{$tree->[0]};
     @options = $order->(\@stack, @options);
     for my $s (@options) {
+        if(defined($min_rel_perc)) {
+            my $time = ($times->{$key} || 0);
+            my $time2 = $times->{join("/", @stack, $s)} || 0;
+            if($time2 / $time * 100 < $min_rel_perc) {
+                next;
+            }
+        }
         dump_tree($tree->[1]->{$s}, @stack, $s);
     }
 }
