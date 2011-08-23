@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+$| = 1;
+
+use strict;
+use warnings;
+
+use JSON::Syck;
+
+my $thread = undef;
+my @stack;
+while(<>) {
+    chomp;
+    if(/^"(.*)"/) {
+        $thread = $1;
+    }
+    if(/^	(.*)$/) {
+        my $elt = $1;
+        if($elt =~ /at (.*)\((.*)\)/)
+        {
+            my $meth = $1;
+            my $src = $2;
+
+            if($src =~ /:([0-9+])$/) {
+                $meth = "$meth:L$1";
+            }
+
+            push @stack, $meth;
+        }
+    }
+    if(/^$/) {
+        flush();
+    }
+}
+flush();
+
+sub flush {
+    if(defined($thread)) {
+        @stack = reverse @stack;
+        print JSON::Syck::Dump({'path' => \@stack, 'thread-name' => $thread}) . "\n";
+
+        $thread = undef;
+        @stack = ();
+    }
+}
