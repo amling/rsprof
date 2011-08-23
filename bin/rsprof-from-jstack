@@ -7,12 +7,12 @@ use warnings;
 
 use JSON::Syck;
 
-my $thread = undef;
+my $name = undef;
 my @stack;
 while(<>) {
     chomp;
     if(/^"(.*)"/) {
-        $thread = $1;
+        $name = $1;
     }
     if(/^	(.*)$/) {
         my $elt = $1;
@@ -35,11 +35,14 @@ while(<>) {
 flush();
 
 sub flush {
-    if(defined($thread)) {
+    if(defined($name)) {
         @stack = reverse @stack;
-        print JSON::Syck::Dump({'path' => \@stack, 'thread-name' => $thread}) . "\n";
-
-        $thread = undef;
+        my $r = {
+            'name' => $name,
+            'path' => join("/", @stack),
+        };
+        print JSON::Syck::Dump($r) . "\n";
         @stack = ();
+        $name = undef;
     }
 }
