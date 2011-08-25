@@ -64,6 +64,11 @@ sub compact_frame_filter {
             $path =~ s/\/$//;
         }
 
+        # TODO: zOMG, terrible
+        if($path eq '') {
+            return undef;
+        }
+
         return ($path, $keep_c);
     };
 }
