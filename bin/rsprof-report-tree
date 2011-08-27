@@ -133,7 +133,7 @@ sub dump_tree {
         if(defined($min_rel_perc)) {
             my $time = ($times->{$key} || 0);
             my $time2 = $times->{join("/", @stack, $s)} || 0;
-            if($time2 / $time * 100 < $min_rel_perc) {
+            if($time2 * 100 < $min_rel_perc * $time) {
                 next;
             }
         }
