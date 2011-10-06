@@ -113,10 +113,22 @@ sub format_key {
         }
     }
 
-    my $r0 = shift @r;
-    my $r1 = @r ? (" (" . join(", ", @r) . ")") : "";
+    my $r;
+    if(@r)
+    {
+        $r = shift @r;
+        if(@r)
+        {
+            $r .= " (" . join(", ", @r) . ")";
+        }
+    }
+    else
+    {
+        # no measures, oops!
+        $r = "?";
+    }
 
-    print "$key => $r0$r1\n";
+    print "$key => $r\n";
 }
 
 sub dump_tree {
