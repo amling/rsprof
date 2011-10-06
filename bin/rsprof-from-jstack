@@ -7,12 +7,20 @@ use warnings;
 
 use JSON::Syck;
 
+my $time = undef;
 my $name = undef;
+my $state = undef;
 my @stack;
 while(<>) {
     chomp;
+    if(/^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/) {
+        $time = $_;
+    }
     if(/^"(.*)"/) {
         $name = $1;
+    }
+    if(/^ *[^ ]*Thread\.State: ([^ ]*)/) {
+        $state = $1;
     }
     if(/^	(.*)$/) {
         my $elt = $1;
@@ -21,7 +29,7 @@ while(<>) {
             my $meth = $1;
             my $src = $2;
 
-            if($src =~ /:([0-9+])$/) {
+            if($src =~ /:([0-9]+)$/) {
                 $meth = "$meth:L$1";
             }
 
@@ -38,7 +46,9 @@ sub flush {
     if(defined($name)) {
         @stack = reverse @stack;
         my $r = {
+            'time' => $time,
             'name' => $name,
+            'state' => $state,
             'path' => join("/", @stack),
         };
         print JSON::Syck::Dump($r) . "\n";
