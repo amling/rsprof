@@ -13,6 +13,10 @@ my $state = undef;
 my @stack;
 while(<>) {
     chomp;
+
+    # tolerate certain whitespace damage
+    s/\s*$//;
+
     if(/^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/) {
         $time = $_;
     }
@@ -35,6 +39,13 @@ while(<>) {
 
             push @stack, $meth;
         }
+    }
+    # broke-ass formatting of proguard deobfuscator
+    if(/^     +([a-zA-Z]*)$/) {
+        my $alt = $1;
+        my $elt = pop @stack;
+        $elt =~ s/((?::L[0-9]*)?)$/|$alt$1/;
+        push @stack, $elt;
     }
     if(/^$/) {
         flush();
