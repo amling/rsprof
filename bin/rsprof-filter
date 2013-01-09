@@ -5,8 +5,13 @@ $| = 1;
 use strict;
 use warnings;
 
-use JSON::Syck;
 use Getopt::Long;
+use JSON qw(decode_json);
+
+my $json = JSON::XS->new();
+$json->allow_nonref(1);
+$json->allow_blessed(1);
+$json->convert_blessed(1);
 
 my $path_field = "path";
 my %time_fields = ();
@@ -129,7 +134,7 @@ sub compact_beyond_filter {
 
     while(<>) {
         chomp;
-        my $r = JSON::Syck::Load($_);
+        my $r = decode_json($_);
         my $path = $r->{$path_field};
 
         my $keep_c = 1;
@@ -170,7 +175,7 @@ sub compact_beyond_filter {
     for my $entry (@{$output->[1]}) {
         my $path = $entry->[0];
         my $fields = $entry->[1];
-        print JSON::Syck::Dump({$path_field => $path, %$fields}) . "\n";
+        print $json->encode({$path_field => $path, %$fields}) . "\n";
     }
 }
 

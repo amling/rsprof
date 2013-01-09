@@ -7,7 +7,7 @@ use warnings;
 
 no warnings ('recursion');
 
-use JSON::Syck;
+use JSON qw(decode_json);
 use Getopt::Long;
 
 my $order = \&order_file;
@@ -41,7 +41,7 @@ my $total = 0;
 
 while(<>) {
     chomp;
-    my $r = JSON::Syck::Load($_);
+    my $r = decode_json($_);
     my $path = $r->{$path_field};
     next unless(defined($path));
     my $time = defined($time_field) ? ($r->{$time_field} || 0) : 0;
