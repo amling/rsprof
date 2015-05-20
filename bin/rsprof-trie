@@ -1,0 +1,95 @@
+#!/usr/bin/perl
+
+$| = 1;
+
+use strict;
+use warnings;
+
+no warnings ('recursion');
+
+use Getopt::Long;
+use JSON ('decode_json');
+
+my $json = JSON::XS->new();
+$json->allow_nonref(1);
+$json->allow_blessed(1);
+$json->convert_blessed(1);
+
+my $path_field = "path";
+my $delim = " ";
+my %data_fields = ();
+
+GetOptions(
+    "path-field=s" => \$path_field,
+    "time-field=s" => sub { for my $field (split(/,/, $_[1])) { $data_fields{$field} = 1; } },
+    "call-field=s" => sub { for my $field (split(/,/, $_[1])) { $data_fields{$field} = 1; } },
+    "delim=s" => \$delim,
+) || die;
+
+my $root = tree_new();
+while(<>)
+{
+    chomp;
+    my $r = decode_json($_);
+    my $path = $r->{$path_field};
+
+    my $pos = $root;
+    for my $e (split("/", $path))
+    {
+        $pos = ($pos->{'children'}->{$e} ||= tree_new());
+    }
+    for my $f (keys(%data_fields))
+    {
+        if(defined($r->{$f}))
+        {
+            ($pos->{'data'}->{$f} ||= 0) += $r->{$f};
+        }
+    }
+}
+
+tree_dump("", $root);
+
+sub tree_dump
+{
+    my $path = shift;
+    my $root = shift;
+#print "tree_dump($path)...\n";
+
+    my @children = keys(%{$root->{'children'}});
+    if(!%{$root->{'data'}} && @children == 1)
+    {
+        my $child = $children[0];
+        my $path2 = $path;
+        if($path2 ne "")
+        {
+            $path2 .= $delim;
+        }
+        $path2 .= $child;
+        return tree_dump($path2, $root->{'children'}->{$child});
+    }
+
+    if(%{$root->{'data'}})
+    {
+        print $json->encode({$path_field => $path, %{$root->{'data'}}}) . "\n";
+    }
+
+    for my $child (@children)
+    {
+        my $path2 = $path;
+        if($path2 ne "")
+        {
+            $path2 .= "/";
+        }
+        $path2 .= $child;
+        tree_dump($path2, $root->{'children'}->{$child});
+    }
+}
+
+sub tree_new
+{
+    return
+    {
+        'data' => {},
+        'children' => {},
+    };
+}
